@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sphinx Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg:        #F8FAFC; --card: #FFF; --text: #1E293B;
+      --sub:       #475569; --muted: #94A3B8; --border: #E2E8F0;
+      --blue:      #3B82F6; --purple: #8B5CF6; --green: #10B981;
+      --red:       #EF4444; --orange: #F59E0B;
+      --shadow:    0 4px 16px rgba(0,0,0,.10);
+      --radius:    12px; --font: 'Inter',sans-serif; --display: 'Space Grotesk',sans-serif;
+    }
+    [data-theme="dark"] {
+      --bg:#0A0F1E; --card:#1E293B; --text:#F1F5F9; --sub:#CBD5E1;
+      --muted:#64748B; --border:#334155; --shadow:0 4px 16px rgba(0,0,0,.4);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s;}
+    button{cursor:pointer;border:none;background:none;font-family:inherit;}
+    input,select,textarea{font-family:inherit;}
+
+    /* LOGIN SCREEN */
+    #loginScreen {
+      min-height:100vh;
+      display:flex;align-items:center;justify-content:center;
+      background:linear-gradient(155deg,#0F172A,#1E3A5F);
+    }
+    .login-box {
+      width:100%;max-width:400px;
+      background:var(--card);border-radius:20px;padding:36px 30px;
+      box-shadow:0 20px 60px rgba(0,0,0,.3);
+    }
+    .login-box h1{font-family:var(--display);font-size:1.5rem;color:var(--text);margin-bottom:6px;}
+    .login-box p{font-size:.83rem;color:var(--muted);margin-bottom:28px;}
+    .login-input{
+      width:100%;padding:11px 14px;border:1.5px solid var(--border);
+      border-radius:8px;font-size:.9rem;color:var(--text);
+      background:var(--bg);margin-bottom:14px;outline:none;
+      transition:border .2s;
+    }
+    .login-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.12);}
+    .login-btn{
+      width:100%;padding:12px;
+      background:linear-gradient(135deg,var(--blue),var(--purple));
+      color:#fff;border-radius:8px;font-size:.95rem;font-weight:700;
+      font-family:var(--display);transition:transform .2s,box-shadow .2s;
+    }
+    .login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(59,130,246,.4);}
+    #loginErr{color:var(--red);font-size:.82rem;margin-top:8px;display:none;}
+    .login-logo{text-align:center;margin-bottom:20px;font-size:2.5rem;}
+
+    /* ADMIN SHELL */
+    #adminShell{display:none;}
+    .admin-layout{display:flex;min-height:100vh;}
+
+    /* SIDEBAR */
+    .sidebar{
+      width:250px;flex-shrink:0;
+      background:linear-gradient(180deg,#0F172A,#1E3A5F);
+      display:flex;flex-direction:column;
+      position:fixed;top:0;left:0;bottom:0;z-index:100;
+      transition:transform .3s;
+    }
+    .sidebar-logo{
+      padding:20px 20px 16px;
+      border-bottom:1px solid rgba(255,255,255,.1);
+      display:flex;align-items:center;gap:10px;
+    }
+    .sidebar-logo-icon{
+      width:38px;height:38px;background:linear-gradient(135deg,var(--blue),var(--purple));
+      border-radius:10px;display:flex;align-items:center;justify-content:center;
+      font-size:18px;color:#fff;flex-shrink:0;
+    }
+    .sidebar-logo-text .name{font-family:var(--display);color:#fff;font-size:1rem;font-weight:700;}
+    .sidebar-logo-text .sub{color:rgba(255,255,255,.45);font-size:.7rem;}
+
+    .sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto;}
+    .nav-section-title{
+      font-size:.65rem;font-weight:700;color:rgba(255,255,255,.35);
+      text-transform:uppercase;letter-spacing:1px;padding:0 10px;margin:16px 0 6px;
+    }
+    .nav-item{
+      display:flex;align-items:center;gap:10px;
+      padding:11px 12px;border-radius:8px;
+      font-size:.875rem;font-weight:600;color:rgba(255,255,255,.6);
+      transition:all .2s;cursor:pointer;margin-bottom:2px;
+    }
+    .nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+    .nav-item.active{background:rgba(59,130,246,.25);color:var(--blue);}
+    .nav-item i{width:18px;text-align:center;font-size:15px;}
+
+    .sidebar-footer{
+      padding:16px;border-top:1px solid rgba(255,255,255,.1);
+    }
+    .logout-btn{
+      width:100%;padding:10px;border-radius:8px;
+      color:rgba(239,68,68,.8);font-size:.875rem;font-weight:600;
+      border:1px solid rgba(239,68,68,.25);
+      background:rgba(239,68,68,.06);
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      transition:all .2s;
+    }
+    .logout-btn:hover{background:rgba(239,68,68,.15);color:var(--red);}
+
+    /* MAIN CONTENT */
+    .main-content{
+      margin-left:250px;flex:1;padding:28px;
+      min-height:100vh;background:var(--bg);
+    }
+
+    /* TOPBAR */
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;
+      margin-bottom:28px;
+    }
+    .topbar-title{font-family:var(--display);font-size:1.4rem;font-weight:700;color:var(--text);}
+    .topbar-right{display:flex;align-items:center;gap:12px;}
+    .theme-toggle{
+      width:38px;height:38px;border-radius:50%;
+      border:1px solid var(--border);background:var(--card);
+      display:flex;align-items:center;justify-content:center;
+      font-size:16px;color:var(--sub);transition:all .2s;
+    }
+    .theme-toggle:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+    /* STATS GRID */
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+    @media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
+    .stat-card{
+      background:var(--card);border-radius:var(--radius);
+      padding:20px;border:1px solid var(--border);
+      box-shadow:var(--shadow);
+    }
+    .stat-icon{
+      width:44px;height:44px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;margin-bottom:12px;
+    }
+    .stat-value{font-family:var(--display);font-size:1.8rem;font-weight:700;color:var(--text);}
+    .stat-label{font-size:.8rem;color:var(--muted);margin-top:2px;}
+
+    /* SECTION PANELS */
+    .admin-section{display:none;}
+    .admin-section.active{display:block;}
+
+    /* DATA TABLE */
+    .table-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow);}
+    .table-header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 20px;border-bottom:1px solid var(--border);
+    }
+    .table-title{font-family:var(--display);font-weight:700;font-size:1rem;color:var(--text);}
+    .table-actions{display:flex;gap:8px;}
+    table{width:100%;border-collapse:collapse;}
+    th{padding:12px 16px;text-align:left;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+    td{padding:13px 16px;font-size:.875rem;color:var(--text);border-bottom:1px solid var(--border);}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:rgba(59,130,246,.03);}
+
+    /* BADGES */
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+    .badge-admin{background:rgba(239,68,68,.12);color:var(--red);}
+    .badge-vip{background:rgba(139,92,246,.12);color:var(--purple);}
+    .badge-guest{background:rgba(245,158,11,.12);color:var(--orange);}
+    .badge-user{background:rgba(59,130,246,.1);color:var(--blue);}
+
+    /* BUTTONS */
+    .btn{padding:8px 16px;border-radius:8px;font-size:.83rem;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:6px;}
+    .btn-primary{background:var(--blue);color:#fff;}
+    .btn-primary:hover{background:#2563EB;transform:translateY(-1px);}
+    .btn-danger{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);}
+    .btn-danger:hover{background:rgba(239,68,68,.2);}
+    .btn-success{background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.2);}
+    .btn-success:hover{background:rgba(16,185,129,.2);}
+    .btn-secondary{background:var(--card);color:var(--sub);border:1px solid var(--border);}
+    .btn-secondary:hover{border-color:var(--blue);color:var(--blue);}
+
+    /* SEARCH BAR */
+    .search-bar{
+      display:flex;align-items:center;gap:8px;
+      background:var(--bg);border:1.5px solid var(--border);
+      border-radius:8px;padding:8px 14px;flex:1;max-width:300px;
+    }
+    .search-bar input{border:none;background:none;outline:none;width:100%;font-size:.875rem;color:var(--text);}
+    .search-bar i{color:var(--muted);}
+
+    /* MODAL */
+    .modal-overlay{
+      display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+      z-index:1000;align-items:center;justify-content:center;
+    }
+    .modal-overlay.open{display:flex;}
+    .modal-box{
+      background:var(--card);border-radius:16px;padding:28px;
+      width:90%;max-width:500px;max-height:85vh;overflow-y:auto;
+      box-shadow:0 20px 60px rgba(0,0,0,.3);
+    }
+    .modal-title{font-family:var(--display);font-size:1.1rem;font-weight:700;margin-bottom:20px;color:var(--text);}
+    .modal-input{
+      width:100%;padding:10px 14px;border:1.5px solid var(--border);
+      border-radius:8px;font-size:.88rem;color:var(--text);background:var(--bg);
+      margin-bottom:12px;outline:none;transition:border .2s;
+    }
+    .modal-input:focus{border-color:var(--blue);}
+    .modal-label{font-size:.8rem;font-weight:600;color:var(--sub);margin-bottom:6px;display:block;}
+    .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+
+    /* CHART */
+    .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px;}
+    @media(max-width:768px){.chart-grid{grid-template-columns:1fr;}}
+    .chart-card{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);box-shadow:var(--shadow);}
+    .chart-title{font-family:var(--display);font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:16px;}
+
+    /* ACTIVITY LOG */
+    .activity-list{max-height:400px;overflow-y:auto;}
+    .activity-item{
+      display:flex;align-items:flex-start;gap:12px;
+      padding:12px 16px;border-bottom:1px solid var(--border);
+    }
+    .activity-item:last-child{border-bottom:none;}
+    .activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+    .activity-body{flex:1;}
+    .activity-action{font-size:.875rem;font-weight:600;color:var(--text);}
+    .activity-time{font-size:.75rem;color:var(--muted);margin-top:2px;}
+
+    /* TOAST */
+    #adminToast{
+      position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+      z-index:9999;pointer-events:none;
+    }
+    .toast{
+      padding:12px 20px;border-radius:40px;font-size:.86rem;font-weight:600;
+      color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.2);margin-top:8px;
+      animation:tIn .3s ease,tOut .3s ease 3s forwards;
+    }
+    .toast.s{background:linear-gradient(135deg,#059669,#10B981);}
+    .toast.e{background:linear-gradient(135deg,#DC2626,#EF4444);}
+    .toast.i{background:linear-gradient(135deg,#2563EB,#3B82F6);}
+    @keyframes tIn{from{opacity:0;transform:translateY(16px)scale(.9)}to{opacity:1;transform:translateY(0)scale(1)}}
+    @keyframes tOut{from{opacity:1}to{opacity:0;transform:translateY(8px)}}
+
+    /* SPINNER */
+    .spinner{animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* FORM GRID */
+    .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    @media(max-width:500px){.form-grid-2{grid-template-columns:1fr;}}
+
+    /* EMPTY STATE */
+    .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
+    .empty-state i{font-size:2.5rem;margin-bottom:12px;display:block;}
+
+    /* Mobile sidebar */
+    .mobile-menu-btn{display:none;width:38px;height:38px;border-radius:8px;border:1px solid var(--border);background:var(--card);align-items:center;justify-content:center;font-size:18px;color:var(--sub);}
+    @media(max-width:768px){
+      .mobile-menu-btn{display:flex;}
+      .sidebar{transform:translateX(-100%);}
+      .sidebar.mobile-open{transform:translateX(0);}
+      .main-content{margin-left:0;}
+      .stats-grid{grid-template-columns:1fr 1fr;}
+    }
+    .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;}
+    .mobile-overlay.open{display:block;}
+  </style>
+</head>
+<body>
+
+<!-- ADMIN TOAST -->
+<div id="adminToast"></div>
+
+<!-- =================== LOGIN SCREEN =================== -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🛡️</div>
+    <h1>Admin Panel</h1>
+    <p>Sphinx University — Restricted Access</p>
+
+    <div id="adminCheckingMsg" style="text-align:center;color:var(--muted);font-size:.85rem;padding:10px 0;">
+      <i class="fas fa-spinner spinner"></i> Checking your session...
+    </div>
+
+    <div id="adminLoginPrompt" style="display:none;">
+      <p style="margin-bottom:16px;font-size:.85rem;color:var(--sub);">
+        Admin access is linked to your Sphinx University account.
+        Please sign in there first, then return here.
+      </p>
+      <button class="login-btn" onclick="window.location.href='login.html'">
+        <i class="fas fa-sign-in-alt"></i> Go to Sign In
+      </button>
+    </div>
+
+    <div id="adminDeniedPrompt" style="display:none;">
+      <p style="margin-bottom:16px;font-size:.85rem;color:var(--red);">
+        <i class="fas fa-ban"></i> You're signed in, but this account does not
+        have admin privileges.
+      </p>
+      <button class="login-btn" onclick="window.location.href='index.html'">
+        <i class="fas fa-arrow-left"></i> Back to Main Site
+      </button>
+    </div>
+
+    <div id="loginErr"></div>
+
+    <div style="margin-top:20px;text-align:center;">
+      <a href="index.html" style="color:rgba(255,255,255,.5);font-size:.8rem;text-decoration:none;">
+        ← Back to main site
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- =================== ADMIN SHELL =================== -->
+<div id="adminShell">
+  <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon"><i class="fas fa-graduation-cap"></i></div>
+      <div class="sidebar-logo-text">
+        <div class="name">Sphinx Admin</div>
+        <div class="sub">Control Panel</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Overview</div>
+      <div class="nav-item active" onclick="showSection('overview')">
+        <i class="fas fa-tachometer-alt"></i> Dashboard
+      </div>
+
+      <div class="nav-section-title">Users</div>
+      <div class="nav-item" onclick="showSection('users')">
+        <i class="fas fa-users"></i> Manage Users
+      </div>
+      <div class="nav-item" onclick="showSection('addUser')">
+        <i class="fas fa-user-plus"></i> Add User
+      </div>
+
+      <div class="nav-section-title">Analytics</div>
+      <div class="nav-item" onclick="showSection('analytics')">
+        <i class="fas fa-chart-bar"></i> Advanced Analytics
+      </div>
+      <div class="nav-item" onclick="showSection('activity')">
+        <i class="fas fa-history"></i> Activity Log
+      </div>
+
+      <div class="nav-section-title">Content</div>
+      <div class="nav-item" onclick="showSection('notifications')">
+        <i class="fas fa-bell"></i> Send Notifications
+      </div>
+      <div class="nav-item" onclick="showSection('export')">
+        <i class="fas fa-file-export"></i> Export Data
+      </div>
+      <div class="nav-item" onclick="showSection('backup')">
+        <i class="fas fa-database"></i> Backup
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="logout-btn" onclick="adminLogout()">
+        <i class="fas fa-sign-out-alt"></i> Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="mobile-menu-btn" onclick="openMobileSidebar()"><i class="fas fa-bars"></i></button>
+        <div class="topbar-title" id="sectionTitle">Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+          <i class="fas fa-moon" id="themeIcon"></i>
+        </button>
+        <span style="font-size:.82rem;color:var(--muted);">Admin: Youssef Sobhy</span>
+      </div>
+    </div>
+
+    <!-- ===== OVERVIEW SECTION ===== -->
+    <div class="admin-section active" id="sec-overview">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(59,130,246,.1);color:var(--blue);"><i class="fas fa-users"></i></div>
+          <div class="stat-value" id="statTotalUsers">—</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(16,185,129,.1);color:var(--green);"><i class="fas fa-user-check"></i></div>
+          <div class="stat-value" id="statActiveToday">—</div>
+          <div class="stat-label">Active Today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(139,92,246,.1);color:var(--purple);"><i class="fas fa-stopwatch"></i></div>
+          <div class="stat-value" id="statStudySessions">—</div>
+          <div class="stat-label">Total Study Sessions</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(245,158,11,.1);color:var(--orange);"><i class="fas fa-chart-line"></i></div>
+          <div class="stat-value" id="statAvgProgress">—</div>
+          <div class="stat-label">Avg. Progress</div>
+        </div>
+      </div>
+
+      <!-- Recent Users Table -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title"><i class="fas fa-users" style="color:var(--blue);margin-right:8px;"></i>Recent Registrations</div>
+          <button class="btn btn-primary" onclick="showSection('users')">
+            <i class="fas fa-arrow-right"></i> View All
+          </button>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Univ. ID</th><th>Points</th><th>Role</th><th>Joined</th></tr></thead>
+          <tbody id="recentUsersBody">
+            <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== USERS SECTION ===== -->
+    <div class="admin-section" id="sec-users">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title"><i class="fas fa-users" style="color:var(--blue);margin-right:8px;"></i>All Users</div>
+          <div class="table-actions">
+            <div class="search-bar">
+              <i class="fas fa-search"></i>
+              <input type="text" id="userSearch" placeholder="Search users..." oninput="filterUsers()"/>
+            </div>
+            <button class="btn btn-primary" onclick="exportCSV()">
+              <i class="fas fa-download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Name</th><th>Phone</th><th>Univ. ID</th><th>Email</th><th>Points</th><th>Role</th><th>Last Login</th><th>Actions</th></tr></thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="8" class="empty-state"><i class="fas fa-spinner spinner"></i></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ADD USER ===== -->
+    <div class="admin-section" id="sec-addUser">
+      <div style="max-width:600px;">
+        <div id="addUserServerNotice" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:.85rem;color:var(--sub);">
+          <i class="fas fa-circle-info" style="color:var(--orange);margin-right:6px;"></i>
+          Creating accounts for other people must happen on a server (not in this browser page) to keep the database secure.
+          See <code>edge-function-create-user.ts</code> in your project files for the ready-to-deploy Supabase Edge Function,
+          then this form can call it. Until then, ask new users to sign up themselves at <code>login.html</code> —
+          you can promote their role afterward from the Manage Users table.
+        </div>
+        <div class="table-wrap" style="padding:24px;">
+          <div class="table-title" style="margin-bottom:20px;"><i class="fas fa-user-plus" style="color:var(--blue);margin-right:8px;"></i>Add New User</div>
+
+          <div class="form-grid-2">
+            <div>
+              <label class="modal-label">Full Name *</label>
+              <input class="modal-input" id="newFullName" placeholder="Full name" />
+            </div>
+            <div>
+              <label class="modal-label">Father's Name</label>
+              <input class="modal-input" id="newFatherName" placeholder="Father name" />
+            </div>
+            <div>
+              <label class="modal-label">Phone *</label>
+              <input class="modal-input" id="newPhone" placeholder="01xxxxxxxxx" maxlength="11" />
+            </div>
+            <div>
+              <label class="modal-label">University ID *</label>
+              <input class="modal-input" id="newUnivId" placeholder="42510XXX" maxlength="8" />
+            </div>
+            <div style="grid-column:1/-1;">
+              <label class="modal-label">Email *</label>
+              <input class="modal-input" id="newEmail" type="email" placeholder="email@example.com" />
+            </div>
+            <div>
+              <label class="modal-label">Password *</label>
+              <input class="modal-input" id="newPassword" type="password" placeholder="Min 8 chars" />
+            </div>
+            <div>
+              <label class="modal-label">Role</label>
+              <select class="modal-input" id="newRole">
+                <option value="user">User</option>
+                <option value="vip">VIP</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-top:8px;" onclick="adminAddUser()">
+            <i class="fas fa-user-plus"></i> Create User Account
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ANALYTICS ===== -->
+    <div class="admin-section" id="sec-analytics">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(59,130,246,.1);color:var(--blue);"><i class="fas fa-star"></i></div>
+          <div class="stat-value" id="aStatPoints">—</div>
+          <div class="stat-label">Total Points Distributed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(16,185,129,.1);color:var(--green);"><i class="fas fa-user-secret"></i></div>
+          <div class="stat-value" id="aStatGuests">—</div>
+          <div class="stat-label">Guest Accounts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(139,92,246,.1);color:var(--purple);"><i class="fas fa-crown"></i></div>
+          <div class="stat-value" id="aStatVip">—</div>
+          <div class="stat-label">VIP Members</div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title"><i class="fas fa-chart-bar" style="color:var(--blue);margin-right:6px;"></i>Progress Distribution</div>
+          <canvas id="progressChart" height="250"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title"><i class="fas fa-chart-pie" style="color:var(--purple);margin-right:6px;"></i>User Roles</div>
+          <canvas id="rolesChart" height="250"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ACTIVITY LOG ===== -->
+    <div class="admin-section" id="sec-activity">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title"><i class="fas fa-history" style="color:var(--blue);margin-right:8px;"></i>Activity Log</div>
+          <button class="btn btn-secondary" onclick="loadActivityLog()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+        <div class="activity-list" id="activityList">
+          <div class="empty-state"><i class="fas fa-spinner spinner"></i> Loading log...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== NOTIFICATIONS ===== -->
+    <div class="admin-section" id="sec-notifications">
+      <div style="max-width:600px;">
+        <div class="table-wrap" style="padding:24px;">
+          <div class="table-title" style="margin-bottom:20px;"><i class="fas fa-paper-plane" style="color:var(--blue);margin-right:8px;"></i>Send Mass Email</div>
+
+          <label class="modal-label">Subject</label>
+          <input class="modal-input" id="emailSubject" placeholder="Email subject..." />
+
+          <label class="modal-label">Message</label>
+          <textarea class="modal-input" id="emailBody" rows="6" placeholder="Your message to all students..." style="resize:vertical;"></textarea>
+
+          <label class="modal-label">Filter</label>
+          <select class="modal-input" id="emailFilter">
+            <option value="all">All Users</option>
+            <option value="non-guest">Non-Guest Users Only</option>
+            <option value="vip">VIP Users Only</option>
+          </select>
+
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-top:4px;" onclick="sendMassEmail()">
+            <i class="fas fa-paper-plane"></i> Send Email to All
+          </button>
+          <p style="font-size:.75rem;color:var(--muted);margin-top:8px;text-align:center;">Note: Requires Supabase email integration or SMTP service.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EXPORT ===== -->
+    <div class="admin-section" id="sec-export">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:600px;">
+        <div class="stat-card" style="cursor:pointer;transition:transform .2s;" onclick="exportCSV()" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">
+          <div class="stat-icon" style="background:rgba(16,185,129,.1);color:var(--green);"><i class="fas fa-file-csv"></i></div>
+          <div class="stat-value" style="font-size:1.1rem;">Export CSV</div>
+          <div class="stat-label">All user data as .csv</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;transition:transform .2s;" onclick="exportJSON()" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">
+          <div class="stat-icon" style="background:rgba(59,130,246,.1);color:var(--blue);"><i class="fas fa-file-code"></i></div>
+          <div class="stat-value" style="font-size:1.1rem;">Export JSON</div>
+          <div class="stat-label">All user data as .json</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BACKUP ===== -->
+    <div class="admin-section" id="sec-backup">
+      <div style="max-width:500px;">
+        <div class="table-wrap" style="padding:24px;">
+          <div class="table-title" style="margin-bottom:16px;"><i class="fas fa-database" style="color:var(--blue);margin-right:8px;"></i>Database Backup</div>
+          <p style="font-size:.875rem;color:var(--sub);margin-bottom:20px;">Download a complete JSON snapshot of the users table from Supabase.</p>
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="downloadBackup()">
+            <i class="fas fa-download"></i> Download Full Backup (.json)
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- EDIT USER MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <div class="modal-title"><i class="fas fa-user-edit" style="color:var(--blue);margin-right:8px;"></i>Edit User</div>
+    <input type="hidden" id="editUserId" />
+
+    <div class="form-grid-2">
+      <div>
+        <label class="modal-label">Full Name</label>
+        <input class="modal-input" id="editModalName" />
+      </div>
+      <div>
+        <label class="modal-label">University ID</label>
+        <input class="modal-input" id="editModalUnivId" />
+      </div>
+      <div>
+        <label class="modal-label">Email</label>
+        <input class="modal-input" id="editModalEmail" type="email" />
+      </div>
+      <div>
+        <label class="modal-label">Phone</label>
+        <input class="modal-input" id="editModalPhone" />
+      </div>
+      <div>
+        <label class="modal-label">Points</label>
+        <input class="modal-input" id="editModalPoints" type="number" min="0" />
+      </div>
+      <div>
+        <label class="modal-label">Role</label>
+        <select class="modal-input" id="editModalRole">
+          <option value="user">User</option>
+          <option value="vip">VIP</option>
+          <option value="admin">Admin</option>
+          <option value="guest">Guest</option>
+        </select>
+      </div>
+      <div>
+        <label class="modal-label">Account Status</label>
+        <select class="modal-input" id="editModalStatus">
+          <option value="active">Active</option>
+          <option value="disabled">Disabled</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUserEdit()"><i class="fas fa-save"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   SUPABASE ADMIN PANEL
+================================================================ */
+const SUPABASE_URL = 'https://amicwjhgdemypsiyuumw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_eOGrAJLnetI1SKpR9npr0g_nZOvs8PT';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Admin credentials are NOT stored or checked here anymore.
+// Admin access is decided by the database (is_admin column),
+// protected by Row Level Security — see supabase_setup.sql.
+// This page only asks "is there a logged-in Supabase session,
+// and does THAT session's row say is_admin = true?"
+
+let currentAdminUser = null;
+
+/* ================================================================
+   REAL SESSION CHECK (replaces the old hardcoded password gate)
+================================================================ */
+async function checkAdminSession() {
+  const checkingMsg = document.getElementById('adminCheckingMsg');
+  const promptBox    = document.getElementById('adminLoginPrompt');
+  const deniedBox     = document.getElementById('adminDeniedPrompt');
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+
+    if (!session) {
+      checkingMsg.style.display = 'none';
+      promptBox.style.display = '';
+      return;
+    }
+
+    // Ask the database whether THIS session's user is an admin.
+    // Thanks to the RLS policy "users_select_own", a non-admin can
+    // only ever see their own row and its real is_admin value —
+    // there's nothing to spoof from the browser console.
+    const { data: profile, error } = await sb
+      .from('users')
+      .select('is_admin, full_name, is_disabled')
+      .eq('id', session.user.id)
+      .single();
+
+    if (error || !profile || !profile.is_admin || profile.is_disabled) {
+      checkingMsg.style.display = 'none';
+      deniedBox.style.display = '';
+      return;
+    }
+
+    currentAdminUser = session.user;
+    checkingMsg.style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminShell').style.display = '';
+    loadDashboard();
+    toast(`Welcome, ${profile.full_name || 'Admin'} 🛡️`, 's');
+    logActivity('Admin login', `${profile.full_name || 'Admin'} signed in to the control panel`, 'blue');
+
+  } catch (e) {
+    checkingMsg.style.display = 'none';
+    promptBox.style.display = '';
+  }
+}
+
+checkAdminSession();
+
+/* ================================================================
+   THEME
+================================================================ */
+(function() {
+  const t = localStorage.getItem('sphinx_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.className = t === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+})();
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  document.getElementById('themeIcon').className = next === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+  localStorage.setItem('sphinx_theme', next);
+}
+
+/* ================================================================
+   LOGIN
+================================================================ */
+/* doAdminLogin() removed — replaced by checkAdminSession() above,
+   which relies on the real Supabase Auth session + RLS-protected
+   is_admin check instead of a client-side password comparison. */
+
+let allUsers = [];
+let activityLog = [];
+
+/* ================================================================
+   SECTION NAVIGATION
+================================================================ */
+function showSection(name) {
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const sec = document.getElementById('sec-' + name);
+  if (sec) sec.classList.add('active');
+
+  const titles = {
+    overview:'Dashboard', users:'Manage Users', addUser:'Add User',
+    analytics:'Analytics', activity:'Activity Log',
+    notifications:'Send Notifications', export:'Export Data', backup:'Backup'
+  };
+  document.getElementById('sectionTitle').textContent = titles[name] || name;
+
+  // Mark nav item active
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.trim().toLowerCase().includes((titles[name]||name).toLowerCase().slice(0,6))) {
+      n.classList.add('active');
+    }
+  });
+
+  // Load section data
+  if (name === 'overview') loadDashboard();
+  if (name === 'users')    loadUsers();
+  if (name === 'analytics') loadAnalytics();
+  if (name === 'activity') loadActivityLog();
+
+  closeMobileSidebar();
+}
+
+/* ================================================================
+   LOAD DASHBOARD
+================================================================ */
+async function loadDashboard() {
+  try {
+    const { data: users, error } = await sb.from('users').select('*');
+    if (error) throw error;
+    allUsers = users || [];
+
+    const total  = allUsers.length;
+    const today  = new Date().toISOString().slice(0,10);
+    const active = allUsers.filter(u => u.last_login && u.last_login.startsWith(today)).length;
+    const sessions = allUsers.reduce((s, u) => s + (u.study_sessions||0), 0);
+    const avgProg = allUsers.length
+      ? Math.round(allUsers.reduce((s, u) => {
+          const p = u.progress || {};
+          return s + ((p.networks||0) + (p.architecture||0) + (p.dsa||0)) / 3;
+        }, 0) / allUsers.length)
+      : 0;
+
+    document.getElementById('statTotalUsers').textContent    = total;
+    document.getElementById('statActiveToday').textContent   = active;
+    document.getElementById('statStudySessions').textContent = sessions.toLocaleString();
+    document.getElementById('statAvgProgress').textContent   = avgProg + '%';
+
+    // Recent users table (last 5)
+    const recent = [...allUsers]
+      .sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0))
+      .slice(0, 5);
+    const tbody = document.getElementById('recentUsersBody');
+    tbody.innerHTML = recent.map(u => `
+      <tr>
+        <td><strong>${u.full_name||'—'}</strong></td>
+        <td>${u.email||'—'}</td>
+        <td>${u.university_id||'—'}</td>
+        <td>${(u.total_points||0).toLocaleString()}</td>
+        <td>${roleBadge(u)}</td>
+        <td>${u.created_at ? new Date(u.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</td>
+      </tr>`).join('');
+  } catch(e) {
+    toast('Failed to load dashboard: ' + e.message, 'e');
+  }
+}
+
+/* ================================================================
+   LOAD USERS
+================================================================ */
+async function loadUsers() {
+  const tbody = document.getElementById('usersTableBody');
+  tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fas fa-spinner spinner"></i></td></tr>';
+
+  try {
+    const { data, error } = await sb.from('users').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    allUsers = data || [];
+    renderUsersTable(allUsers);
+  } catch(e) {
+    toast('Failed to load users: ' + e.message, 'e');
+  }
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('usersTableBody');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><i class="fas fa-users"></i>No users found</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${u.full_name||'—'}</strong></td>
+      <td>${u.phone||'—'}</td>
+      <td>${u.university_id||'—'}</td>
+      <td>${u.email||'—'}</td>
+      <td>${(u.total_points||0).toLocaleString()}</td>
+      <td>${roleBadge(u)}</td>
+      <td style="font-size:.78rem;">${u.last_login ? new Date(u.last_login).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-success" style="padding:5px 10px;font-size:.75rem;" onclick="openEditModal('${u.id}')">
+            <i class="fas fa-pen"></i> Edit
+          </button>
+          <button class="btn btn-danger" style="padding:5px 10px;font-size:.75rem;" onclick="deleteUser('${u.id}','${(u.full_name||'').replace(/'/g,"\'")}')">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function roleBadge(u) {
+  if (u.is_admin)  return '<span class="badge badge-admin"><i class="fas fa-shield-alt"></i> Admin</span>';
+  if (u.is_vip)   return '<span class="badge badge-vip"><i class="fas fa-crown"></i> VIP</span>';
+  if (u.is_guest) return '<span class="badge badge-guest"><i class="fas fa-user-secret"></i> Guest</span>';
+  return '<span class="badge badge-user"><i class="fas fa-user"></i> User</span>';
+}
+
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase();
+  const filtered = allUsers.filter(u =>
+    (u.full_name||'').toLowerCase().includes(q) ||
+    (u.email||'').toLowerCase().includes(q) ||
+    (u.university_id||'').toLowerCase().includes(q) ||
+    (u.phone||'').includes(q)
+  );
+  renderUsersTable(filtered);
+}
+
+/* ================================================================
+   EDIT USER
+================================================================ */
+function openEditModal(userId) {
+  const user = allUsers.find(u => u.id === userId);
+  if (!user) return;
+  document.getElementById('editUserId').value      = user.id;
+  document.getElementById('editModalName').value   = user.full_name || '';
+  document.getElementById('editModalUnivId').value = user.university_id || '';
+  document.getElementById('editModalEmail').value  = user.email || '';
+  document.getElementById('editModalPhone').value  = user.phone || '';
+  document.getElementById('editModalPoints').value = user.total_points || 0;
+  const role = user.is_admin?'admin':user.is_vip?'vip':user.is_guest?'guest':'user';
+  document.getElementById('editModalRole').value   = role;
+  document.getElementById('editModalStatus').value = user.is_disabled ? 'disabled' : 'active';
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('open');
+}
+
+async function saveUserEdit() {
+  const id     = document.getElementById('editUserId').value;
+  const name   = document.getElementById('editModalName').value.trim();
+  const univId = document.getElementById('editModalUnivId').value.trim();
+  const email  = document.getElementById('editModalEmail').value.trim();
+  const phone  = document.getElementById('editModalPhone').value.trim();
+  const points = parseInt(document.getElementById('editModalPoints').value) || 0;
+  const role   = document.getElementById('editModalRole').value;
+  const status = document.getElementById('editModalStatus').value;
+
+  try {
+    const updates = {
+      full_name: name, university_id: univId, email, phone,
+      total_points: points,
+      is_admin: role === 'admin',
+      is_vip:   role === 'vip',
+      is_guest: role === 'guest',
+      is_disabled: status === 'disabled',
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await sb.from('users').update(updates).eq('id', id);
+    if (error) throw error;
+    toast('User updated successfully ✅', 's');
+    closeEditModal();
+    loadUsers();
+    logActivity('User edited', `Updated user: ${name}`, 'blue');
+  } catch(e) {
+    toast('Failed to update: ' + e.message, 'e');
+  }
+}
+
+/* ================================================================
+   DELETE USER
+================================================================ */
+async function deleteUser(id, name) {
+  if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
+  try {
+    const { error } = await sb.from('users').delete().eq('id', id);
+    if (error) throw error;
+    toast(`User "${name}" deleted.`, 'i');
+    logActivity('User deleted', `Deleted user: ${name}`, 'red');
+    loadUsers();
+  } catch(e) {
+    toast('Delete failed: ' + e.message, 'e');
+  }
+}
+
+/* ================================================================
+   ADD USER
+   ----------------------------------------------------------------
+   IMPORTANT: This used to call sb.auth.signUp() directly from the
+   admin panel. That is broken AND unsafe: signUp() on the browser
+   client swaps the *active session* over to the newly created
+   user. The admin would be silently logged out of their own
+   account and logged in as the brand-new user immediately after
+   clicking "Add User" — and the very next database write (the
+   profile insert) could then fail or, worse, succeed as the wrong
+   user.
+
+   Creating accounts on someone else's behalf has to happen on a
+   server using the Supabase SERVICE ROLE key, which must never be
+   placed in this HTML file (anyone could read it and gain full
+   database access). The correct fix is a small Supabase Edge
+   Function that calls supabase.auth.admin.createUser() server-side.
+   See: edge-function-create-user.ts (included alongside this file)
+   for ready-to-deploy code.
+
+   Until that function is deployed, this button safely tells the
+   admin what to do instead of silently breaking the session.
+================================================================ */
+async function adminAddUser() {
+  toast('Adding users requires a server-side function for security — see edge-function-create-user.ts in your project files for setup instructions.', 'i');
+  showAddUserServerNotice();
+}
+
+function showAddUserServerNotice() {
+  const box = document.getElementById('addUserServerNotice');
+  if (box) box.style.display = '';
+}
+
+/* ================================================================
+   ANALYTICS
+================================================================ */
+async function loadAnalytics() {
+  try {
+    const { data, error } = await sb.from('users').select('*');
+    if (error) throw error;
+    const users = data || [];
+
+    const totalPts = users.reduce((s,u) => s+(u.total_points||0), 0);
+    const guests   = users.filter(u => u.is_guest).length;
+    const vips     = users.filter(u => u.is_vip).length;
+
+    document.getElementById('aStatPoints').textContent = totalPts.toLocaleString();
+    document.getElementById('aStatGuests').textContent = guests;
+    document.getElementById('aStatVip').textContent    = vips;
+
+    // Roles pie chart
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#CBD5E1' : '#475569';
+
+    const admins   = users.filter(u => u.is_admin).length;
+    const regular  = users.filter(u => !u.is_admin && !u.is_vip && !u.is_guest).length;
+
+    const rolesCtx = document.getElementById('rolesChart').getContext('2d');
+    if (window._rolesChart) window._rolesChart.destroy();
+    window._rolesChart = new Chart(rolesCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Regular', 'VIP', 'Admin', 'Guest'],
+        datasets: [{ data: [regular, vips, admins, guests],
+          backgroundColor: ['#3B82F6','#8B5CF6','#EF4444','#F59E0B'],
+          borderWidth: 0 }]
+      },
+      options: { plugins: { legend: { labels: { color: textColor } } }, cutout:'65%' }
+    });
+
+    // Progress distribution chart
+    const buckets = [0,0,0,0,0]; // 0-20, 21-40, 41-60, 61-80, 81-100
+    users.forEach(u => {
+      const p = u.progress || {};
+      const avg = ((p.networks||0)+(p.architecture||0)+(p.dsa||0))/3;
+      const idx = Math.min(Math.floor(avg/20), 4);
+      buckets[idx]++;
+    });
+    const progCtx = document.getElementById('progressChart').getContext('2d');
+    if (window._progChart) window._progChart.destroy();
+    window._progChart = new Chart(progCtx, {
+      type: 'bar',
+      data: {
+        labels: ['0–20%','21–40%','41–60%','61–80%','81–100%'],
+        datasets: [{ label:'Students', data: buckets,
+          backgroundColor: ['#EF4444','#F59E0B','#3B82F6','#8B5CF6','#10B981'],
+          borderRadius: 6 }]
+      },
+      options: {
+        plugins:{ legend:{ labels:{ color:textColor } } },
+        scales:{ x:{ ticks:{ color:textColor }, grid:{ color:'rgba(148,163,184,.1)' } },
+                 y:{ ticks:{ color:textColor }, grid:{ color:'rgba(148,163,184,.1)' } } }
+      }
+    });
+
+  } catch(e) { toast('Analytics error: ' + e.message, 'e'); }
+}
+
+/* ================================================================
+   ACTIVITY LOG — now stored in the real admin_activity_log table
+   (shared across all admins, survives browser clears, and is
+   readable only by admins thanks to RLS — see supabase_setup.sql)
+================================================================ */
+function logActivity(action, detail, color='blue') {
+  // Fire-and-forget insert; UI doesn't need to wait on this.
+  sb.from('admin_activity_log').insert({
+    admin_id: currentAdminUser ? currentAdminUser.id : null,
+    action,
+    details: { detail, color }
+  }).then(()=>{}).catch(e => console.warn('activity log:', e));
+}
+
+async function loadActivityLog() {
+  const list = document.getElementById('activityList');
+  try {
+    const { data: logs, error } = await sb
+      .from('admin_activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+
+    if (!logs || !logs.length) {
+      list.innerHTML = '<div class="empty-state"><i class="fas fa-history"></i>No activity logged yet.</div>';
+      return;
+    }
+    const colors = { blue:'#3B82F6', green:'#10B981', red:'#EF4444', orange:'#F59E0B', purple:'#8B5CF6' };
+    list.innerHTML = logs.map(l => {
+      const color = (l.details && l.details.color) || 'blue';
+      const detail = (l.details && l.details.detail) || '';
+      return `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:${colors[color]||'#3B82F6'};"></div>
+        <div class="activity-body">
+          <div class="activity-action">${l.action}</div>
+          <div class="activity-time">${detail} · ${new Date(l.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>Could not load activity log: ${e.message}</div>`;
+  }
+}
+
+/* ================================================================
+   MASS EMAIL
+================================================================ */
+async function sendMassEmail() {
+  const subject = document.getElementById('emailSubject').value.trim();
+  const body    = document.getElementById('emailBody').value.trim();
+  const filter  = document.getElementById('emailFilter').value;
+  if (!subject || !body) { toast('Please fill subject and message', 'e'); return; }
+
+  // Count recipients
+  let recipients = allUsers;
+  if (filter === 'non-guest') recipients = allUsers.filter(u => !u.is_guest);
+  if (filter === 'vip')       recipients = allUsers.filter(u => u.is_vip);
+
+  if (!recipients.length) { toast('No recipients match the filter', 'e'); return; }
+
+  toast(`Mass email queued for ${recipients.length} users. (Requires SMTP integration)`, 'i');
+  logActivity('Mass email sent', `Subject: "${subject}" — ${recipients.length} recipients (${filter})`, 'orange');
+}
+
+/* ================================================================
+   EXPORT CSV
+================================================================ */
+function exportCSV() {
+  if (!allUsers.length) { toast('No users to export', 'e'); return; }
+  const headers = ['ID','Full Name','Father Name','Phone','University ID','Email','Points','Sessions','Is Admin','Is VIP','Is Guest','Created At','Last Login'];
+  const rows = allUsers.map(u => [
+    u.id||'', u.full_name||'', u.father_name||'', u.phone||'',
+    u.university_id||'', u.email||'', u.total_points||0, u.study_sessions||0,
+    u.is_admin?'Yes':'No', u.is_vip?'Yes':'No', u.is_guest?'Yes':'No',
+    u.created_at||'', u.last_login||''
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  download('sphinx_users.csv', csv, 'text/csv');
+  logActivity('Data exported', 'Users exported as CSV', 'green');
+  toast('CSV downloaded!', 's');
+}
+
+function exportJSON() {
+  if (!allUsers.length) { toast('No users to export', 'e'); return; }
+  download('sphinx_users.json', JSON.stringify(allUsers, null, 2), 'application/json');
+  logActivity('Data exported', 'Users exported as JSON', 'green');
+  toast('JSON downloaded!', 's');
+}
+
+/* ================================================================
+   BACKUP
+================================================================ */
+async function downloadBackup() {
+  try {
+    const { data, error } = await sb.from('users').select('*');
+    if (error) throw error;
+    const backup = { exported_at: new Date().toISOString(), count: data.length, users: data };
+    download(`sphinx_backup_${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(backup, null, 2), 'application/json');
+    logActivity('Backup created', `Full backup — ${data.length} users`, 'purple');
+    toast('Backup downloaded!', 's');
+  } catch(e) {
+    toast('Backup failed: ' + e.message, 'e');
+  }
+}
+
+/* ================================================================
+   HELPERS
+================================================================ */
+function download(filename, content, mime) {
+  const a = document.createElement('a');
+  a.href = 'data:' + mime + ';charset=utf-8,' + encodeURIComponent(content);
+  a.download = filename;
+  a.click();
+}
+
+function toast(msg, type='i') {
+  const container = document.getElementById('adminToast');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+/* ================================================================
+   LOGOUT
+================================================================ */
+async function adminLogout() {
+  if (!confirm('Sign out of admin panel?')) return;
+  await sb.auth.signOut();
+  currentAdminUser = null;
+  document.getElementById('adminShell').style.display = 'none';
+  document.getElementById('loginScreen').style.display = '';
+  document.getElementById('adminCheckingMsg').style.display = 'none';
+  document.getElementById('adminLoginPrompt').style.display = '';
+  document.getElementById('adminDeniedPrompt').style.display = 'none';
+}
+
+/* ================================================================
+   MOBILE SIDEBAR
+================================================================ */
+function openMobileSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('mobileOverlay').classList.add('open');
+}
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('mobileOverlay').classList.remove('open');
+}
+</script>
+</body>
+</html>
